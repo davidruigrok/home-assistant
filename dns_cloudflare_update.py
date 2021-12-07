@@ -1,5 +1,5 @@
 import requests
-import miniupnpc
+import subprocess
 from env import (
     CF_ACCESS_TOKEN,
     ZONE_ID,
@@ -15,15 +15,13 @@ from urllib3.exceptions import InsecureRequestWarning
 
 def get_current_ip_address() -> str:
     """
-    Get current 'remote' ip address of router for Home Assistant
+    Get current 'remote' ip address of Home Assistant
     :return:
     """
-    u = miniupnpc.UPnP()
-    u.discoverdelay = 200
-    u.discover()
-    u.selectigd()
 
-    return str(u.externalipaddress())
+    res = requests.get('https://checkip.amazonaws.com/')
+    if res.status_code == 200:
+        return str(res.text.strip())
 
 
 def get_cloudflare_ip_address() -> tuple:
@@ -58,7 +56,7 @@ def send_notification(current_ip_address):
     }
     data = {
         "title": f"{HA_EXTERNAL_URL} DNS changed",
-        "message": f"The IP address for DNS 'A' record for {HA_EXTERNAL_URL} has been changed to {current_ip_address}",
+        "message": f"The DNS 'A' record for {HA_EXTERNAL_URL} has been changed to {current_ip_address}",
     }
 
     requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
@@ -86,40 +84,40 @@ def auto_update_cloudflare_dns():
     cloudflare_ip_address = get_cloudflare_ip_address()
     # Get current 'remote' IP address which should be used for Home Assistant
     current_ip_address = get_current_ip_address()
-
-    # Compare both addresses
-    if cloudflare_ip_address[1] != current_ip_address:
-        logging.info(
-            f"{PROJECT_NAME}.dns.status=CHG,{PROJECT_NAME}.dns.ip='{cloudflare_ip_address[1]}',"
-            f"{PROJECT_NAME}.external.ip='{current_ip_address}'"
-        )
-
-        # External IP address of project changed, let's update it
-        resp = requests.put(
-            f"https://api.cloudflare.com/client/v4/zones/{ZONE_ID}/dns_records/{cloudflare_ip_address[0]}",
-            json={
-                "type": "A",
-                "name": HA_EXTERNAL_URL,
-                "content": current_ip_address,
-                "proxied": True,
-            },
-            headers={
-                "Authorization": f"Bearer {CF_ACCESS_TOKEN}",
-            },
-        )
-
-        if resp.status_code == 200:
+    if current_ip_address:
+        # Compare both addresses
+        if cloudflare_ip_address[1] != current_ip_address:
             logging.info(
-                f"Updated DNS A for {HA_EXTERNAL_URL} on cloudflare to {current_ip_address}"
+                f"{PROJECT_NAME}.dns.status=CHG,{PROJECT_NAME}.dns.ip='{cloudflare_ip_address[1]}',"
+                f"{PROJECT_NAME}.external.ip='{current_ip_address}'"
             )
-            # Let's send a push notification with update about the change
-            send_notification(current_ip_address)
 
-    else:
-        logging.info(
-            f"{PROJECT_NAME}.dns.status=NOCHG,{PROJECT_NAME}.dns.ip='{cloudflare_ip_address[1]}',"
-            f"PROJECT_NAME.external.ip='{current_ip_address}'"
-        )
+            # External IP address of project changed, let's update it
+            resp = requests.put(
+                f"https://api.cloudflare.com/client/v4/zones/{ZONE_ID}/dns_records/{cloudflare_ip_address[0]}",
+                json={
+                    "type": "A",
+                    "name": HA_EXTERNAL_URL,
+                    "content": current_ip_address,
+                    "proxied": True,
+                },
+                headers={
+                    "Authorization": f"Bearer {CF_ACCESS_TOKEN}",
+                },
+            )
+
+            if resp.status_code == 200:
+                logging.info(
+                    f"Updated DNS A for {HA_EXTERNAL_URL} on cloudflare to {current_ip_address}"
+                )
+                # Let's send a push notification with update about the change
+                send_notification(current_ip_address)
+
+        else:
+            logging.info(
+                f"{PROJECT_NAME}.dns.status=NOCHG,{PROJECT_NAME}.dns.ip='{cloudflare_ip_address[1]}',"
+                f"PROJECT_NAME.external.ip='{current_ip_address}'"
+            )
 
 
 logging.info(

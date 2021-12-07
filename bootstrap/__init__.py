@@ -11,7 +11,7 @@ trace_id = str(uuid.uuid4())
 logging.basicConfig(
     level=logging.DEBUG,
     filename=f"/var/log/{PROJECT_NAME}.log",
-    filemode="w",
+    filemode="a",
     format="%(asctime)s [%(levelname)s] [%(trace_id)s] %(message)s",
     datefmt="%Y-%m-%d,%H:%M:%S",
 )
