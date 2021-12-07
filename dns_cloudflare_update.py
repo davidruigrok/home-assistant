@@ -1,5 +1,4 @@
 import requests
-import subprocess
 from env import (
     CF_ACCESS_TOKEN,
     ZONE_ID,
