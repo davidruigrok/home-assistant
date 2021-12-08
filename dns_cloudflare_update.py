@@ -115,7 +115,7 @@ def auto_update_cloudflare_dns():
         else:
             logging.info(
                 f"{PROJECT_NAME}.dns.status=NOCHG,{PROJECT_NAME}.dns.ip='{cloudflare_ip_address[1]}',"
-                f"PROJECT_NAME.external.ip='{current_ip_address}'"
+                f"{PROJECT_NAME}.external.ip='{current_ip_address}'"
             )
 
 
